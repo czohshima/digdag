@@ -13,8 +13,11 @@ public abstract class DirectUploadHandle
 
     public abstract String getUrl();
 
-    public static ImmutableDirectUploadHandle.Builder builder()
+    public static DirectUploadHandle of(String type, String url)
     {
-        return ImmutableDirectUploadHandle.builder();
+        return ImmutableDirectUploadHandle.builder()
+            .type(type)
+            .url(url)
+            .build();
     }
 }

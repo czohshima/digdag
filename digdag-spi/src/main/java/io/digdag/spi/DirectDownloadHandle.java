@@ -13,8 +13,11 @@ public abstract class DirectDownloadHandle
 
     public abstract String getUrl();
 
-    public static ImmutableDirectDownloadHandle.Builder builder()
+    public static DirectDownloadHandle of(String type, String url)
     {
-        return ImmutableDirectDownloadHandle.builder();
+        return ImmutableDirectDownloadHandle.builder()
+            .type(type)
+            .url(url)
+            .build();
     }
 }
