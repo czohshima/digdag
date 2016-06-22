@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
-import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.nio.file.Path;
@@ -53,7 +52,6 @@ public class TdOperatorFactory
         implements OperatorFactory
 {
     private static final String JOB_ID = "jobId";
-    private static final String DOMAIN_KEY = "domainKey";
     private static final String POLL_INTERVAL = "pollInterval";
 
     private static final Integer INITIAL_POLL_INTERVAL = 1;
@@ -98,7 +96,6 @@ public class TdOperatorFactory
         private final boolean preview;
         private final Config state;
         private final Optional<String> existingJobId;
-        private final Optional<String> existingDomainKey;
 
         public TdOperator(Path workspacePath, TaskRequest request)
         {
@@ -135,20 +132,12 @@ public class TdOperatorFactory
             this.state = request.getLastStateParams().deepCopy();
 
             this.existingJobId = state.getOptional(JOB_ID, String.class);
-            this.existingDomainKey = state.getOptional(DOMAIN_KEY, String.class);
         }
 
         @Override
         public TaskResult runTask()
         {
-            try (TDOperator op = TDOperator.fromConfigWithRetries(params)) {
-
-                // Generate and store domain key before starting the job
-                if (!existingDomainKey.isPresent()) {
-                    String domainKey = UUID.randomUUID().toString();
-                    state.set(DOMAIN_KEY, domainKey);
-                    throw TaskExecutionException.ofNextPolling(0, ConfigElement.copyOf(state.deepCopy()));
-                }
+            try (TDOperator op = TDOperator.fromConfig(params)) {
 
                 // Start the job
                 if (!existingJobId.isPresent()) {
@@ -172,6 +161,8 @@ public class TdOperatorFactory
 
                 // Get the job results
                 return processJobResult(op, job, status);
+
+
             }
         }
 
@@ -240,7 +231,6 @@ public class TdOperatorFactory
                     throw new ConfigException("Unknown 'engine:' option (available options are: hive and presto): "+engine);
             }
 
-            assert existingDomainKey.isPresent();
             TDJobRequest req = new TDJobRequestBuilder()
                     .setResultOutput(resultUrl.orNull())
                     .setType(engine)
@@ -249,7 +239,6 @@ public class TdOperatorFactory
                     .setRetryLimit(jobRetry)
                     .setPriority(priority)
                     .setScheduledTime(request.getSessionTime().getEpochSecond())
-                    .setDomainKey(existingDomainKey.get())
                     .createTDJobRequest();
 
             TDJobOperator j = op.submitNewJob(req);
@@ -352,6 +341,29 @@ public class TdOperatorFactory
         op.withDatabase(table.getDatabase().or(op.getDatabase())).ensureTableCreated(table.getTable());
     }
 
+<<<<<<< HEAD
+    static TDJobSummary joinJob(TDJobOperator j)
+    {
+        try {
+            return j.ensureSucceeded();
+        }
+        catch (TDJobException ex) {
+            try {
+                TDJob job = j.getJobInfo();
+                String message = job.getCmdOut() + "\n" + job.getStdErr();
+                throw new TaskExecutionException(message, buildExceptionErrorConfig(ex));
+            }
+            catch (Exception getJobInfoFailed) {
+                getJobInfoFailed.addSuppressed(ex);
+                throw Throwables.propagate(getJobInfoFailed);
+            }
+        }
+        catch (InterruptedException ex) {
+            throw Throwables.propagate(ex);
+        }
+        finally {
+            j.ensureFinishedOrKill();
+=======
     private static String escapeHiveTableName(TableParam table)
     {
         if (table.getDatabase().isPresent()) {
@@ -369,6 +381,7 @@ public class TdOperatorFactory
         }
         else {
             return escapePrestoIdent(table.getTable());
+>>>>>>> d4d5c2f... make td operator polling instead of blocking
         }
     }
 
